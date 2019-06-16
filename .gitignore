@@ -1,0 +1,7 @@
+.vscode/
+*.yy.c
+*.out
+*.tab.c
+*.tab.h
+*.dot
+*.output
