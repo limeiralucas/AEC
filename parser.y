@@ -4,8 +4,6 @@
     #include <string.h>
     #include "headers/structures.h"
 
-    extern char Data_Type[50];
-
     extern void yyerror();
     extern int yylex();
     extern char* yytext;
@@ -45,16 +43,19 @@
 %left	TIMES	DIVIDE    MOD
 %right	POW
 
+%type <strVal> primary_statement
+%type <strVal> declaration
+
 %type <instruction> number
 %type <instruction> expression
 %type <instruction> function_call
 
-%type <strVal> c_parameter
-%type <strVal> parameter
-%type <strVal> parameter_list
+%type <instruction> c_parameter
+%type <instruction> parameter
+%type <instruction> parameter_list
 
-%type <strVal> c_id
-%type <strVal> id_list
+%type <instruction> c_id
+%type <instruction> id_list
 
 %%
 
@@ -91,9 +92,12 @@ operator
     ;
 
 expression
-    : number {;}
+    : number { $$ = $1; }
     | function_call {;}
-    | ID { $$->dataType = getIdentifierDataType($1); }
+    | ID {
+        $$->dataType = getIdentifierDataType($1);
+        printf("\nID:%s\n", $1);
+    }
     | number operator expression {
         if(strcmp($1->dataType, $3->dataType)) {
             printf("INVALID MIX EXPRESSION on line %d: \nCan't mix <%s> and <%s> types\n", yylineno, $1->dataType, $3->dataType);
@@ -118,28 +122,41 @@ declaration
             exit(0);
         }
         storeIdentifier($2, $1);
+        if($4->dataType == "int") {
+            printf("%s %s = %d;\n", $1, $2, $4->value.intValue);
+        } else if ($4->dataType == "float") {
+            printf("%s %s = %f;\n", $1, $2, $4->value.floatValue);
+        } else {
+            printf("%s %s = %s;\n", $1, $2, $4->value.strValue);
+        }
     }
-    | DATA_TYPE ID
+    | DATA_TYPE ID {;}
     ;
 
 c_id
-    : COMMA ID { $$ = getIdentifierDataType($2); }
+    : COMMA ID {
+        $$->dataType = getIdentifierDataType($2);
+        $$->value.strValue = $2;
+    }
     ;
 
 id_list
-    : ID { $$ = getIdentifierDataType($1); }
+    : ID {
+        $$->dataType = getIdentifierDataType($1);
+        $$->value.strValue = $1;
+    }
     | id_list c_id {
-        char* aux = malloc(sizeof(char) * (strlen($1) + strlen($2) + 2));
-        strcpy(aux, $1);
+        char* aux = malloc(sizeof(char) * (strlen($1->dataType) + strlen($2->dataType) + 2));
+        strcpy(aux, $1->dataType);
         strcat(aux, ",");
-        strcat(aux, $2);
-        $$ = aux;
+        strcat(aux, $2->dataType); 
+        $$->dataType = aux;
     }
     ;
 
 function_call
     : ID LEFT_PARENTHESIS id_list RIGHT_PARENTHESIS {
-        validateFunctionParams($1, $3);
+        validateFunctionParams($1, $3->dataType);
         $$->dataType = getFunctionDataType($1);
     }
     | ID LEFT_PARENTHESIS RIGHT_PARENTHESIS {
@@ -166,36 +183,67 @@ coumpound_statement_list
     ;
 
 c_parameter
-    : COMMA parameter { $$ = $2; }
+    : COMMA parameter {
+        $$->dataType = $2->dataType;
+
+        char* aux = malloc(sizeof(char) * (strlen($2->dataType) + strlen($2->value.strValue) + 3));
+        strcpy(aux, $2->dataType);
+        strcat(aux, " ");
+        strcat(aux, $2->value.strValue);
+
+        $$->value.strValue = aux;
+    }
     ;
 
 parameter
-    : DATA_TYPE ID { $$ = $1; }
+    : DATA_TYPE ID {
+        $$->dataType = strdup($1);
+        $$->value.strValue = strdup($2);
+    }
     ;
 
 parameter_list
-    : parameter { $$ = $1; }
-    | parameter_list c_parameter {
-        char* aux = malloc(sizeof(char) * (strlen($1) + strlen($2) + 2));
-        strcpy(aux, $1);
-        strcat(aux, ",");
-        strcat(aux, $2);
-        $$ = aux;
+    : parameter {
+        $$->dataType = $1->dataType;
+        char* aux = malloc(sizeof(char) * (strlen($1->dataType) + strlen($1->value.strValue) + 3));
+        strcpy(aux, $1->dataType);
+        strcat(aux, " ");
+        strcat(aux, $1->value.strValue);
+        
+        $$->value.strValue = aux;
     }
-    | {$$ = "";}
+    | parameter_list c_parameter {
+        char* aux = malloc(sizeof(char) * (strlen($1->dataType) + strlen($2->dataType) + 2));
+        strcpy(aux, $1->dataType);
+        strcat(aux, ",");
+        strcat(aux, $2->dataType);
+        $$->dataType = aux;
+
+        int size = strlen($1->value.strValue) + strlen($2->value.strValue) + 4;
+        char* aux2 = malloc(sizeof(char) * size);
+        strcpy(aux2, $1->value.strValue);
+        strcat(aux2, ",");
+        strcat(aux2, $2->value.strValue);
+        $$->value.strValue = aux2;
+    }
+    | {
+        $$->dataType = "";
+        $$->value.strValue = "";
+    }
     ;
 
 
 function_definition
     : DATA_TYPE ID LEFT_PARENTHESIS parameter_list RIGHT_PARENTHESIS coumpound_statement_list {
         storeFunction($2, $1);
-        storeParams($2, $4);
+        storeParams($2, $4->dataType);
+        printf("%s %s(%s)\n", $1, $2, $4->value.strValue);
     }
     ;
 
 primary_statement
     : declaration END
-    | function_definition
+    | function_definition {;}
     ;
 
 primary_statement_list

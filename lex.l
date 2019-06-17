@@ -56,7 +56,7 @@
 ("&")               return(BITWISE_AND);
 ("|")               return(BITWISE_OR);
 [-+]?[0-9]+         {yylval.intVal = atoi(yytext); return INTEGER_LITERAL; }
-[-+]?[0-9]*\.?[0-9]+ return(FLOAT_LITERAL);
+[-+]?[0-9]*\.?[0-9]+ {yylval.floatVal = atof(yytext); return FLOAT_LITERAL; }
 
 \"(\\.|[^"])*\"     return(STRING_VALUE);
 
