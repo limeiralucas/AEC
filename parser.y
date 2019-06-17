@@ -49,6 +49,13 @@
 %type <instruction> expression
 %type <instruction> function_call
 
+%type <strVal> c_parameter
+%type <strVal> parameter
+%type <strVal> parameter_list
+
+%type <strVal> c_id
+%type <strVal> id_list
+
 %%
 
 assignment
@@ -116,20 +123,28 @@ declaration
     ;
 
 c_id
-    : COMMA ID
+    : COMMA ID { $$ = getIdentifierDataType($2); }
     ;
 
 id_list
-    : ID
-    | id_list c_id
+    : ID { $$ = getIdentifierDataType($1); }
+    | id_list c_id {
+        char* aux = malloc(sizeof(char) * (strlen($1) + strlen($2) + 2));
+        strcpy(aux, $1);
+        strcat(aux, ",");
+        strcat(aux, $2);
+        $$ = aux;
+    }
     ;
 
 function_call
     : ID LEFT_PARENTHESIS id_list RIGHT_PARENTHESIS {
-        $$->dataType = getIdentifierDataType($1);
+        validateFunctionParams($1, $3);
+        $$->dataType = getFunctionDataType($1);
     }
     | ID LEFT_PARENTHESIS RIGHT_PARENTHESIS {
-        $$->dataType = getIdentifierDataType($1);
+        validateFunctionParams($1, "");
+        $$->dataType = getFunctionDataType($1);
     }
     ;
 
@@ -151,23 +166,30 @@ coumpound_statement_list
     ;
 
 c_parameter
-    : COMMA parameter
+    : COMMA parameter { $$ = $2; }
     ;
 
 parameter
-    : DATA_TYPE ID
+    : DATA_TYPE ID { $$ = $1; }
     ;
 
 parameter_list
-    : parameter
-    | parameter_list c_parameter
-    |
+    : parameter { $$ = $1; }
+    | parameter_list c_parameter {
+        char* aux = malloc(sizeof(char) * (strlen($1) + strlen($2) + 2));
+        strcpy(aux, $1);
+        strcat(aux, ",");
+        strcat(aux, $2);
+        $$ = aux;
+    }
+    | {$$ = "";}
     ;
 
 
 function_definition
     : DATA_TYPE ID LEFT_PARENTHESIS parameter_list RIGHT_PARENTHESIS coumpound_statement_list {
-        storeIdentifier($2, $1);
+        storeFunction($2, $1);
+        storeParams($2, $4);
     }
     ;
 
