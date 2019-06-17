@@ -8,5 +8,6 @@ int test(int e, int w, int q) {
 }
 
 int main() {
-    y = test(y, w, z);
+    o = 2;
+    y = test(y, w, y);
 }
