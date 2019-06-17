@@ -43,8 +43,13 @@
 %left	TIMES	DIVIDE    MOD
 %right	POW
 
+%type <strVal> statement
+%type <strVal> statement_list
+%type <strVal> coumpound_statement_list
+%type <strVal> function_definition
 %type <strVal> primary_statement
 %type <strVal> declaration
+%type <strVal> assignment
 
 %type <instruction> number
 %type <instruction> expression
@@ -66,6 +71,10 @@ assignment
             printf("INVALID MIX EXPRESSION on line %d: \nCan't mix <%s> and <%s> types\n", yylineno, idDataType, $3->dataType);
             exit(0);
         }
+        int size = snprintf(NULL, 0, "%s = %s;", $1, $3->value.strValue);
+        char* aux = malloc(sizeof(char) * size);
+        sprintf(aux, "%s = %s;", $1, $3->value.strValue);
+        $$ = aux;
     }
     ;
 
@@ -93,10 +102,12 @@ operator
 
 expression
     : number { $$ = $1; }
-    | function_call {;}
+    | function_call {
+        $$->value.strValue = $1->value.strValue;
+    }
     | ID {
         $$->dataType = getIdentifierDataType($1);
-        printf("\nID:%s\n", $1);
+        $$->value.strValue = strdup($1);
     }
     | number operator expression {
         if(strcmp($1->dataType, $3->dataType)) {
@@ -123,11 +134,20 @@ declaration
         }
         storeIdentifier($2, $1);
         if($4->dataType == "int") {
-            printf("%s %s = %d;\n", $1, $2, $4->value.intValue);
+            int size = snprintf(NULL, 0, "%s %s = %d", $1, $2, $4->value.intValue);
+            char* aux = malloc(sizeof(char) * size);
+            sprintf(aux, "%s %s = %d;", $1, $2, $4->value.intValue);
+            $$ = aux;
         } else if ($4->dataType == "float") {
-            printf("%s %s = %f;\n", $1, $2, $4->value.floatValue);
+            int size = snprintf(NULL, 0, "%s %s = %f", $1, $2, $4->value.floatValue);
+            char* aux = malloc(sizeof(char) * size);
+            sprintf(aux, "%s %s = %f;", $1, $2, $4->value.floatValue);
+            $$ = aux;
         } else {
-            printf("%s %s = %s;\n", $1, $2, $4->value.strValue);
+            int size = snprintf(NULL, 0, "%s %s = %s", $1, $2, $4->value.strValue);
+            char* aux = malloc(sizeof(char) * size);
+            sprintf(aux, "%s %s = %s;", $1, $2, $4->value.strValue);
+            $$ = aux;
         }
     }
     | DATA_TYPE ID {;}
@@ -142,42 +162,63 @@ c_id
 
 id_list
     : ID {
+        $$ = malloc(sizeof(struct Instruction*));
         $$->dataType = getIdentifierDataType($1);
-        $$->value.strValue = $1;
+        $$->value.strValue = strdup($1);
     }
     | id_list c_id {
+        $$ = malloc(sizeof(struct Instruction*));
         char* aux = malloc(sizeof(char) * (strlen($1->dataType) + strlen($2->dataType) + 2));
         strcpy(aux, $1->dataType);
         strcat(aux, ",");
         strcat(aux, $2->dataType); 
         $$->dataType = aux;
+
+        int size = snprintf(NULL, 0, "%s, %s", $1->value.strValue, $2->value.strValue);
+        char* aux2 = malloc(sizeof(char) * size);
+        sprintf(aux2, "%s, %s", $1->value.strValue, $2->value.strValue);
+        $$->value.strValue = aux2;
     }
     ;
 
 function_call
     : ID LEFT_PARENTHESIS id_list RIGHT_PARENTHESIS {
         validateFunctionParams($1, $3->dataType);
+        $$ = malloc(sizeof(struct Instruction*));
         $$->dataType = getFunctionDataType($1);
+
+        int size = snprintf(NULL, 0, "%s(%s)", $1, $3->value.strValue);
+        char* aux = malloc(sizeof(char) * size);
+        sprintf(aux, "%s(%s)", $1, $3->value.strValue);
+        $$->value.strValue = aux;
     }
     | ID LEFT_PARENTHESIS RIGHT_PARENTHESIS {
         validateFunctionParams($1, "");
+        $$ = malloc(sizeof(struct Instruction*));
         $$->dataType = getFunctionDataType($1);
     }
     ;
 
 statement
-    : declaration END
-    | assignment END
-    | function_call END
+    : declaration END { $$ = strdup($1); }
+    | assignment END { $$ = strdup($1); }
+    | function_call END {;}
     ;
 
 statement_list
-    : statement
+    : statement {
+        $$ = strdup($1);
+    }
     | statement_list statement
     ;
 
 coumpound_statement_list
-    : LEFT_BRACKET statement_list RIGHT_BRACKET
+    : LEFT_BRACKET statement_list RIGHT_BRACKET {
+        int size = snprintf(NULL, 0, "{%s}", $2);
+        char* aux = malloc(sizeof(char) * size);
+        sprintf(aux, "{%s}", $2);
+        $$ = aux;
+    }
     | LEFT_BRACKET RIGHT_BRACKET
     | END
     ;
@@ -204,6 +245,8 @@ parameter
 
 parameter_list
     : parameter {
+        $$ = malloc(sizeof(struct Instruction*));
+
         $$->dataType = $1->dataType;
         char* aux = malloc(sizeof(char) * (strlen($1->dataType) + strlen($1->value.strValue) + 3));
         strcpy(aux, $1->dataType);
@@ -213,6 +256,8 @@ parameter_list
         $$->value.strValue = aux;
     }
     | parameter_list c_parameter {
+        $$ = malloc(sizeof(struct Instruction*));
+    
         char* aux = malloc(sizeof(char) * (strlen($1->dataType) + strlen($2->dataType) + 2));
         strcpy(aux, $1->dataType);
         strcat(aux, ",");
@@ -227,6 +272,7 @@ parameter_list
         $$->value.strValue = aux2;
     }
     | {
+        $$ = malloc(sizeof(struct Instruction*));
         $$->dataType = "";
         $$->value.strValue = "";
     }
@@ -237,13 +283,20 @@ function_definition
     : DATA_TYPE ID LEFT_PARENTHESIS parameter_list RIGHT_PARENTHESIS coumpound_statement_list {
         storeFunction($2, $1);
         storeParams($2, $4->dataType);
-        printf("%s %s(%s)\n", $1, $2, $4->value.strValue);
+
+        int size = snprintf(NULL, 0, "%s %s(%s)", $1, $2, $4->value.strValue);
+        char* aux = malloc(sizeof(char) * size);
+        sprintf(aux, "%s %s(%s)%s", $1, $2, $4->value.strValue, $6);
+        
+        $$ = aux;
     }
     ;
 
 primary_statement
     : declaration END
-    | function_definition {;}
+    | function_definition {
+        printf("%s\n", $1);
+    }
     ;
 
 primary_statement_list
