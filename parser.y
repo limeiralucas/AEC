@@ -48,6 +48,7 @@
 %type <strVal> coumpound_statement_list
 %type <strVal> function_definition
 %type <strVal> primary_statement
+%type <strVal> primary_statement_list
 %type <strVal> declaration
 %type <strVal> assignment
 
@@ -233,6 +234,8 @@ c_parameter
         strcat(aux, $2->value.strValue);
 
         $$->value.strValue = aux;
+
+        free($2);
     }
     ;
 
@@ -293,19 +296,28 @@ function_definition
     ;
 
 primary_statement
-    : declaration END
+    : declaration END {
+        $$ = $1;
+    }
     | function_definition {
-        printf("%s\n", $1);
+        $$ = $1;
     }
     ;
 
 primary_statement_list
-    : primary_statement
-    | primary_statement_list primary_statement
+    : primary_statement {
+        $$ = $1;
+    }
+    | primary_statement_list primary_statement {
+        sprintf($$, "%s\n%s", $1, $2);
+    }
     ;
 
 program
-    : primary_statement_list
+    : primary_statement_list {
+        freeTables();
+        printf("%s\n", $1);
+    }
     |
     ;
 

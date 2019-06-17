@@ -78,3 +78,9 @@ void validateFunctionParams(char* identifier, char* params) {
         exit(0);
     }
 }
+
+void freeTables() {
+    freeHashMemory(&symbolTable);
+    freeHashMemory(&functionTable);
+    freeHashMemory(&paramsTable);
+}
